@@ -9,13 +9,13 @@ The portable packages are complete Python environments with WhisperX and all dep
 ## Package Variants
 
 ### 1. CUDA Version (~2.5 GB)
-- **File:** `whisperx_portable_win64_cuda128_v3.4.2.zip`
+- **File:** `whisperx_portable_win64_cuda128_v3.7.4.zip`
 - **For:** Users with NVIDIA GPUs (RTX 20/30/40 series, GTX 16 series)
 - **Includes:** PyTorch with CUDA 12.8 support
 - **Performance:** 10-20x faster than CPU
 
 ### 2. CPU Version (~800 MB)
-- **File:** `whisperx_portable_win64_cpu_v3.4.2.zip`
+- **File:** `whisperx_portable_win64_cpu_v3.7.4.zip`
 - **For:** Users without NVIDIA GPU, or with AMD/Intel GPUs
 - **Includes:** PyTorch CPU-only version
 - **Performance:** Slower but works on all systems
@@ -93,7 +93,7 @@ After building, test the package:
 
 ```bash
 # Extract the zip
-unzip whisperx_portable_win64_cuda128_v3.4.2.zip -d test_env
+unzip whisperx_portable_win64_cuda128_v3.7.4.zip -d test_env
 
 # Test Python
 test_env\Scripts\python.exe --version
@@ -113,7 +113,7 @@ Options for hosting the built packages:
    - Free
    - 2GB file limit per file
    - Automatic CDN
-   - URL: `https://github.com/YOUR_USERNAME/scriptoria/releases/download/whisperx-v3.4.2/whisperx_portable_win64_cuda128_v3.4.2.zip`
+   - URL: `https://github.com/YOUR_USERNAME/scriptoria/releases/download/whisperx-v3.7.4/whisperx_portable_win64_cuda128_v3.7.4.zip`
 
 2. **Your own server/CDN**
    - Full control

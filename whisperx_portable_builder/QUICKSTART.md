@@ -32,10 +32,10 @@ Open PowerShell or Command Prompt in the `whisperx_portable_builder` folder:
 
 1. Go to your GitHub repository
 2. Click "Releases" → "Create a new release"
-3. Set tag to `whisperx-v3.4.2`
+3. Set tag to `whisperx-v3.7.4`
 4. Upload both zip files:
-   - `whisperx_portable_win64_cuda128_v3.4.2.zip`
-   - `whisperx_portable_win64_cpu_v3.4.2.zip`
+   - `whisperx_portable_win64_cuda128_v3.7.4.zip`
+   - `whisperx_portable_win64_cpu_v3.7.4.zip`
 5. Publish release
 
 ### Step 3: Update Your Code
@@ -70,15 +70,15 @@ git push
 Create and push a tag:
 
 ```bash
-git tag whisperx-v3.4.2
-git push origin whisperx-v3.4.2
+git tag whisperx-v3.7.4
+git push origin whisperx-v3.7.4
 ```
 
 **OR** manually trigger in GitHub:
 1. Go to Actions tab
 2. Select "Build Scriptoria WhisperX Standalone"
 3. Click "Run workflow"
-4. Enter version: `3.4.2`
+4. Enter version: `3.7.4`
 5. Click "Run workflow"
 
 ### Step 3: Wait for Build

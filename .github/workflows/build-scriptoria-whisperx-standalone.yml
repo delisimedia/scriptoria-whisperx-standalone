@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'WhisperX version (e.g., 3.4.2)'
+        description: 'WhisperX version (e.g., 3.7.4)'
         required: true
-        default: '3.4.2'
+        default: '3.7.4'
       pytorch_version:
         description: 'PyTorch version (e.g., 2.8.0)'
         required: true

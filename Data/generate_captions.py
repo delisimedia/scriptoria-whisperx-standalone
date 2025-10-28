@@ -45,7 +45,7 @@ from PyQt6.QtGui import QIcon, QPalette, QColor, QTextCursor, QFont, QDragEnterE
 # - CUDA 12.8 (cu128) via https://download.pytorch.org/whl/cu128
 # ============================================================================
 
-WHISPERX_VERSION = "3.4.2"  # WhisperX package version
+WHISPERX_VERSION = "3.7.4"  # WhisperX package version
 WHISPERX_PYTORCH_VERSION = "2.8.0"
 WHISPERX_TORCHAUDIO_VERSION = "2.8.0"
 WHISPERX_CUDA_VERSION = "12.8"

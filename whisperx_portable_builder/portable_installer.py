@@ -22,7 +22,7 @@ import hashlib
 # Configuration
 # ============================================================================
 
-WHISPERX_VERSION = "3.4.2"
+WHISPERX_VERSION = "3.7.4"
 PACKAGE_VERSION = f"v{WHISPERX_VERSION}"
 
 # GitHub release URLs

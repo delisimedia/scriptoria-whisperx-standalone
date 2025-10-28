@@ -24,10 +24,10 @@ echo.
 
 REM Configuration - Update these when WhisperX dependencies change
 set PYTHON_VERSION=3.13.3
-set WHISPERX_VERSION=3.4.2
+set WHISPERX_VERSION=3.7.4
 set PYTORCH_VERSION=2.8.0
 set TORCHAUDIO_VERSION=2.8.0
-set PACKAGE_VERSION=v3.4.2
+set PACKAGE_VERSION=v3.7.4
 
 REM Build directories
 set BUILD_DIR=%~dp0build_cpu
