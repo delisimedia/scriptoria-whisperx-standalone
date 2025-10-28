@@ -72,18 +72,22 @@ jobs:
           whisperx_portable\Scripts\python.exe -c "import torch; print(f'PyTorch {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
 
       - name: Create portable package
-        shell: pwsh
+        shell: bash
         run: |
-          $version = "${{ steps.get_version.outputs.VERSION }}"
-          $outputFile = "whisperx_portable_win64_cuda128_v$version.zip"
+          version="${{ steps.get_version.outputs.VERSION }}"
+          outputFile="whisperx_portable_win64_cuda128_v${version}.zip"
 
-          Write-Host "Creating portable package: $outputFile"
-          Compress-Archive -Path "whisperx_portable\*" -DestinationPath $outputFile -CompressionLevel Optimal
+          echo "Creating portable package: $outputFile"
+          # Use 7-Zip (pre-installed on GitHub Windows runners, no size limit)
+          cd whisperx_portable
+          7z a -tzip "../$outputFile" * -mx=5
+          cd ..
 
-          $fileSize = (Get-Item $outputFile).Length / 1MB
-          Write-Host "Package size: $([math]::Round($fileSize, 2)) MB"
+          fileSize=$(stat -c%s "$outputFile" 2>/dev/null || stat -f%z "$outputFile" 2>/dev/null)
+          fileSizeMB=$((fileSize / 1048576))
+          echo "Package size: ${fileSizeMB} MB"
 
-          echo "PACKAGE_NAME=$outputFile" >> $env:GITHUB_OUTPUT
+          echo "PACKAGE_NAME=$outputFile" >> $GITHUB_OUTPUT
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -145,18 +149,22 @@ jobs:
           whisperx_portable\Scripts\python.exe -c "import torch; print(f'PyTorch {torch.__version__} (CPU-only)')"
 
       - name: Create portable package
-        shell: pwsh
+        shell: bash
         run: |
-          $version = "${{ steps.get_version.outputs.VERSION }}"
-          $outputFile = "whisperx_portable_win64_cpu_v$version.zip"
+          version="${{ steps.get_version.outputs.VERSION }}"
+          outputFile="whisperx_portable_win64_cpu_v${version}.zip"
 
-          Write-Host "Creating portable package: $outputFile"
-          Compress-Archive -Path "whisperx_portable\*" -DestinationPath $outputFile -CompressionLevel Optimal
+          echo "Creating portable package: $outputFile"
+          # Use 7-Zip (pre-installed on GitHub Windows runners, no size limit)
+          cd whisperx_portable
+          7z a -tzip "../$outputFile" * -mx=5
+          cd ..
 
-          $fileSize = (Get-Item $outputFile).Length / 1MB
-          Write-Host "Package size: $([math]::Round($fileSize, 2)) MB"
+          fileSize=$(stat -c%s "$outputFile" 2>/dev/null || stat -f%z "$outputFile" 2>/dev/null)
+          fileSizeMB=$((fileSize / 1048576))
+          echo "Package size: ${fileSizeMB} MB"
 
-          echo "PACKAGE_NAME=$outputFile" >> $env:GITHUB_OUTPUT
+          echo "PACKAGE_NAME=$outputFile" >> $GITHUB_OUTPUT
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
