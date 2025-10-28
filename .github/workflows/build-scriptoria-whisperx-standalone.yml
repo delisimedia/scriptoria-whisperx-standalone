@@ -1,0 +1,241 @@
+name: Build Scriptoria WhisperX Standalone
+
+on:
+  # Trigger on tag push matching whisperx-v*
+  push:
+    tags:
+      - 'whisperx-v*'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'WhisperX version (e.g., 3.4.2)'
+        required: true
+        default: '3.4.2'
+      pytorch_version:
+        description: 'PyTorch version (e.g., 2.8.0)'
+        required: true
+        default: '2.8.0'
+
+jobs:
+  build-cuda:
+    name: Build WhisperX Portable (CUDA)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Get version from tag or input
+        id: get_version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -match 'refs/tags/whisperx-v(.+)') {
+            $version = $matches[1]
+          } else {
+            $version = "${{ github.event.inputs.version }}"
+          }
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "Package version: $version"
+
+      - name: Create virtual environment
+        shell: cmd
+        run: |
+          echo Creating virtual environment...
+          python -m venv whisperx_portable
+
+      - name: Install PyTorch with CUDA
+        shell: cmd
+        run: |
+          echo Installing PyTorch with CUDA 12.8...
+          whisperx_portable\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
+          whisperx_portable\Scripts\python.exe -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
+
+      - name: Install WhisperX
+        shell: cmd
+        run: |
+          echo Installing WhisperX ${{ steps.get_version.outputs.VERSION }}...
+          whisperx_portable\Scripts\python.exe -m pip install whisperx==${{ steps.get_version.outputs.VERSION }}
+
+      - name: Verify installation
+        shell: cmd
+        run: |
+          echo Verifying installation...
+          whisperx_portable\Scripts\python.exe --version
+          whisperx_portable\Scripts\python.exe -c "import whisperx; print(f'WhisperX {whisperx.__version__}')"
+          whisperx_portable\Scripts\python.exe -c "import torch; print(f'PyTorch {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
+
+      - name: Create portable package
+        shell: pwsh
+        run: |
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          $outputFile = "whisperx_portable_win64_cuda128_v$version.zip"
+
+          Write-Host "Creating portable package: $outputFile"
+          Compress-Archive -Path "whisperx_portable\*" -DestinationPath $outputFile -CompressionLevel Optimal
+
+          $fileSize = (Get-Item $outputFile).Length / 1MB
+          Write-Host "Package size: $([math]::Round($fileSize, 2)) MB"
+
+          echo "PACKAGE_NAME=$outputFile" >> $env:GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: whisperx-portable-cuda
+          path: whisperx_portable_win64_cuda128_v${{ steps.get_version.outputs.VERSION }}.zip
+          retention-days: 30
+
+  build-cpu:
+    name: Build WhisperX Portable (CPU)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Get version from tag or input
+        id: get_version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -match 'refs/tags/whisperx-v(.+)') {
+            $version = $matches[1]
+          } else {
+            $version = "${{ github.event.inputs.version }}"
+          }
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "Package version: $version"
+
+      - name: Create virtual environment
+        shell: cmd
+        run: |
+          echo Creating virtual environment...
+          python -m venv whisperx_portable
+
+      - name: Install PyTorch CPU
+        shell: cmd
+        run: |
+          echo Installing PyTorch CPU...
+          whisperx_portable\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
+          whisperx_portable\Scripts\python.exe -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install WhisperX
+        shell: cmd
+        run: |
+          echo Installing WhisperX ${{ steps.get_version.outputs.VERSION }}...
+          whisperx_portable\Scripts\python.exe -m pip install whisperx==${{ steps.get_version.outputs.VERSION }}
+
+      - name: Verify installation
+        shell: cmd
+        run: |
+          echo Verifying installation...
+          whisperx_portable\Scripts\python.exe --version
+          whisperx_portable\Scripts\python.exe -c "import whisperx; print(f'WhisperX {whisperx.__version__}')"
+          whisperx_portable\Scripts\python.exe -c "import torch; print(f'PyTorch {torch.__version__} (CPU-only)')"
+
+      - name: Create portable package
+        shell: pwsh
+        run: |
+          $version = "${{ steps.get_version.outputs.VERSION }}"
+          $outputFile = "whisperx_portable_win64_cpu_v$version.zip"
+
+          Write-Host "Creating portable package: $outputFile"
+          Compress-Archive -Path "whisperx_portable\*" -DestinationPath $outputFile -CompressionLevel Optimal
+
+          $fileSize = (Get-Item $outputFile).Length / 1MB
+          Write-Host "Package size: $([math]::Round($fileSize, 2)) MB"
+
+          echo "PACKAGE_NAME=$outputFile" >> $env:GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: whisperx-portable-cpu
+          path: whisperx_portable_win64_cpu_v${{ steps.get_version.outputs.VERSION }}.zip
+          retention-days: 30
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-cuda, build-cpu]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/whisperx-v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download CUDA artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: whisperx-portable-cuda
+
+      - name: Download CPU artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: whisperx-portable-cpu
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Scriptoria WhisperX Standalone v${{ steps.get_version.outputs.VERSION }}
+          body: |
+            # Scriptoria WhisperX Standalone v${{ steps.get_version.outputs.VERSION }}
+
+            Self-contained WhisperX environments for Scriptoria. No Python installation required!
+
+            ## Downloads
+
+            ### CUDA Version (for NVIDIA GPUs)
+            - **File:** `whisperx_portable_win64_cuda128_v${{ steps.get_version.outputs.VERSION }}.zip`
+            - **Size:** ~2.5 GB
+            - **Requirements:** NVIDIA GPU with CUDA support (RTX 20/30/40 series, GTX 16 series)
+            - **Performance:** 10-20x faster than CPU
+
+            ### CPU Version (for all systems)
+            - **File:** `whisperx_portable_win64_cpu_v${{ steps.get_version.outputs.VERSION }}.zip`
+            - **Size:** ~800 MB
+            - **Requirements:** Any Windows 10/11 system
+            - **Performance:** Slower but works on all systems
+
+            ## Installation
+
+            These packages are automatically downloaded and extracted by Scriptoria when you click "Install WhisperX".
+
+            Manual installation:
+            1. Download the appropriate package for your system
+            2. Extract to `whisperx_env/` in your Scriptoria installation directory
+            3. Done!
+
+            ## What's Included
+
+            - Python 3.13
+            - WhisperX ${{ steps.get_version.outputs.VERSION }}
+            - PyTorch 2.8.0
+            - All required dependencies
+
+            ## Changelog
+
+            - WhisperX: ${{ steps.get_version.outputs.VERSION }}
+            - PyTorch: 2.8.0
+            - CUDA: 12.8 (CUDA version only)
+          files: |
+            whisperx_portable_win64_cuda128_v${{ steps.get_version.outputs.VERSION }}.zip
+            whisperx_portable_win64_cpu_v${{ steps.get_version.outputs.VERSION }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
