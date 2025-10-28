@@ -73,7 +73,7 @@ PACKAGE_VERSION = f"v{WHISPERX_VERSION}"
 
 # GitHub repository for pre-built packages
 # IMPORTANT: Update this to your actual GitHub username/repo after building packages!
-GITHUB_REPO = "YOUR_USERNAME/scriptoria"  # TODO: Update this!
+GITHUB_REPO = "delisimedia/scriptoria-whisperx-standalone"
 GITHUB_RELEASE_URL = f"https://github.com/{GITHUB_REPO}/releases/download/whisperx-{PACKAGE_VERSION}"
 
 # Package files
