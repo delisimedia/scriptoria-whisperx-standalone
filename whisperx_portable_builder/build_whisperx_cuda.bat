@@ -120,6 +120,19 @@ echo WhisperX installed successfully
 echo.
 
 echo ============================================================================
+echo Step 4a: Patching SpeechBrain lazy importer for Windows paths
+echo ============================================================================
+echo.
+echo Fixing infinite recursion bug in speechbrain/utils/importutils.py...
+
+"%ENV_DIR%\Scripts\python.exe" -c "from pathlib import Path; p = Path(r'%ENV_DIR%\Lib\site-packages\speechbrain\utils\importutils.py'); c = p.read_text(); old = 'importer_frame.filename.endswith(\"/inspect.py\")'; new = 'importer_frame.filename.replace(\"\\\\\", \"/\").endswith(\"/inspect.py\")'; c_new = c.replace(old, new); assert c != c_new, 'Pattern not found!'; p.write_text(c_new); print('Patch applied successfully')"
+
+if errorlevel 1 (
+    echo WARNING: Failed to patch SpeechBrain - diarization may not work on Windows
+    echo Continuing anyway...
+)
+
+echo ============================================================================
 echo Step 5: Verifying installation
 echo ============================================================================
 echo.
