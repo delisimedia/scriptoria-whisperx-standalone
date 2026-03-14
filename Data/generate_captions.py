@@ -5854,13 +5854,11 @@ class GenerateCaptionsWidget(QWidget):
 
         # Detect the actually-installed version from whisperx_env, not the code constant.
         # WHISPERX_VERSION is the version the *app* was built for, not what the user has installed.
+        # Use the python path already found by check_whisperx_deps_simple() at startup.
         current_version = None
-        try:
-            _app_dir = get_app_directory()
-            _portable_python = os.path.join(_app_dir, "whisperx_env", "python.exe")
-            if not os.path.exists(_portable_python):
-                _portable_python = os.path.join(_app_dir, "whisperx_env", "Scripts", "python.exe")
-            if os.path.exists(_portable_python):
+        _portable_python = getattr(self, 'whisperx_python', None) or getattr(self, 'whisperx_venv_python', None)
+        if _portable_python and os.path.exists(_portable_python):
+            try:
                 _ver_result = subprocess.run(
                     [_portable_python, "-c",
                      "import importlib.metadata; print(importlib.metadata.version('whisperx'))"],
@@ -5870,8 +5868,13 @@ class GenerateCaptionsWidget(QWidget):
                 )
                 if _ver_result.returncode == 0:
                     current_version = _ver_result.stdout.strip()
-        except Exception:
-            pass
+                    self._append_text_to_console(f"Installed version: {current_version}\n")
+                else:
+                    self._append_text_to_console(f"Version check failed: {_ver_result.stderr.strip()}\n")
+            except Exception as _e:
+                self._append_text_to_console(f"Version check error: {_e}\n")
+        else:
+            self._append_text_to_console("Could not locate whisperx_env python — version unknown.\n")
         if not current_version:
             current_version = WHISPERX_VERSION  # fallback to code constant
 
