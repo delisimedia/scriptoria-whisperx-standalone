@@ -5731,24 +5731,39 @@ class GenerateCaptionsWidget(QWidget):
                         try:
                             with open(_sb_path, "r", encoding="utf-8") as _f:
                                 _sb_src = _f.read()
-                            _pattern = (
-                                r'(?m)^( +)if importer_frame is not None'
-                                r' and importer_frame\.filename\.endswith\("/inspect\.py"\):\r?\n'
-                                r'\1    raise AttributeError\(\)'
-                            )
                             _replacement = (
                                 r'\1if importer_frame is not None:\n'
                                 r'\1    _fname = importer_frame.filename.replace("\\\\", "/")\n'
                                 r'\1    if _fname.endswith("/inspect.py"):\n'
                                 r'\1        raise AttributeError()'
                             )
-                            _new_src, _count = _re2.subn(_pattern, _replacement, _sb_src)
+                            # Pattern A: old single-line form (SpeechBrain 0.5.x)
+                            _pattern_a = (
+                                r'(?m)^( +)if importer_frame is not None'
+                                r' and importer_frame\.filename\.endswith\("/inspect\.py"\):\r?\n'
+                                r'\1    raise AttributeError\(\)'
+                            )
+                            # Pattern B: new multi-line form (SpeechBrain 1.0.x)
+                            _pattern_b = (
+                                r'(?m)^( +)if importer_frame is not None'
+                                r' and importer_frame\.filename\.endswith\(\r?\n'
+                                r'\1    "/inspect\.py"\r?\n'
+                                r'\1\):\r?\n'
+                                r'\1    raise AttributeError\(\)'
+                            )
+                            if 'replace("\\\\", "/")' in _sb_src:
+                                self.progress.emit("  ✓ SpeechBrain patch already applied\n")
+                                _patched = True
+                                break
+                            _new_src, _count = _re2.subn(_pattern_a, _replacement, _sb_src)
+                            if _count == 0:
+                                _new_src, _count = _re2.subn(_pattern_b, _replacement, _sb_src)
                             if _count > 0:
                                 with open(_sb_path, "w", encoding="utf-8") as _f:
                                     _f.write(_new_src)
                                 self.progress.emit(f"  ✓ SpeechBrain importutils.py patched\n")
                             else:
-                                self.progress.emit("  ✓ SpeechBrain patch already applied or not needed\n")
+                                self.progress.emit("  ✓ SpeechBrain patch not needed (upstream may have fixed it)\n")
                             _patched = True
                         except Exception as _patch_exc:
                             self.progress.emit(f"  ⚠ SpeechBrain patch error: {_patch_exc}\n")
