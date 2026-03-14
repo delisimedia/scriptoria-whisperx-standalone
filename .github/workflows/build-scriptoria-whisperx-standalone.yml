@@ -92,7 +92,7 @@ jobs:
         shell: cmd
         run: |
           echo Patching SpeechBrain lazy importer for Windows path separators...
-          whisperx_portable\Scripts\python.exe -c "import re; from pathlib import Path; path = Path(r'whisperx_portable\\Lib\\site-packages\\speechbrain\\utils\\importutils.py'); src = path.read_text(); pattern = r'(?m)^        if importer_frame is not None and importer_frame\\.filename.endswith\(\"/inspect\\.py\"\):\r?\n            raise AttributeError\(\)'; repl = '        if importer_frame is not None:\\n            filename = importer_frame.filename.replace(\\"\\\\\\", \\\"/\\")\\n            if filename.endswith(\\"/inspect.py\\"):\\n                raise AttributeError()'; new_src, count = re.subn(pattern, repl, src);\nif count == 0: raise SystemExit('SpeechBrain patch failed: pattern not found'); path.write_text(new_src)"
+          whisperx_portable\Scripts\python.exe whisperx_portable_builder\patch_speechbrain.py whisperx_portable
 
 
       - name: Verify installation
@@ -208,7 +208,7 @@ jobs:
         shell: cmd
         run: |
           echo Patching SpeechBrain lazy importer for Windows path separators...
-          whisperx_portable\Scripts\python.exe -c "import re; from pathlib import Path; path = Path(r'whisperx_portable\\Lib\\site-packages\\speechbrain\\utils\\importutils.py'); src = path.read_text(); pattern = r'(?m)^        if importer_frame is not None and importer_frame\\.filename.endswith\(\"/inspect\\.py\"\):\r?\n            raise AttributeError\(\)'; repl = '        if importer_frame is not None:\\n            filename = importer_frame.filename.replace(\\"\\\\\\", \\\"/\\")\\n            if filename.endswith(\\"/inspect.py\\"):\\n                raise AttributeError()'; new_src, count = re.subn(pattern, repl, src);\nif count == 0: raise SystemExit('SpeechBrain patch failed: pattern not found'); path.write_text(new_src)"
+          whisperx_portable\Scripts\python.exe whisperx_portable_builder\patch_speechbrain.py whisperx_portable
 
       - name: Verify installation
         shell: cmd
