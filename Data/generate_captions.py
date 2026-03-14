@@ -4927,6 +4927,8 @@ class GenerateCaptionsWidget(QWidget):
             )
             install_cuda = (cuda_reply == QMessageBox.StandardButton.Yes)
 
+        self._show_console()
+
         self.whisperx_install_btn.setEnabled(False)
         self.whisperx_install_btn.setVisible(False)
         self.whisperx_cancel_btn.setVisible(True)
@@ -5584,13 +5586,15 @@ class GenerateCaptionsWidget(QWidget):
                         self.finished.emit(False, "Installation cancelled by user", "")
                         return
 
-                    # WhisperX 3.8.x requires torch~=2.8.0 in its metadata, but cu128 wheels
-                    # only exist for torch 2.9.x.  Install whisperx with --no-deps to skip
-                    # that version gate, then install its remaining deps in step 3.
+                    # WhisperX 3.8.x requires torch~=2.8.0 AND Python <3.14 in its metadata.
+                    # We bypass both constraints:
+                    #   --no-deps             skips the torch~=2.8.0 version gate
+                    #   --ignore-requires-python  allows install on Python 3.14+
                     self.progress.emit(f"\nStep 2/3: Installing WhisperX {WHISPERX_VERSION} (package only)...\n")
 
                     whisperx_cmd = [venv_python, "-m", "pip", "install",
-                                    f"whisperx=={WHISPERX_VERSION}", "--no-deps", "-v"] + pip_target_args
+                                    f"whisperx=={WHISPERX_VERSION}", "--no-deps",
+                                    "--ignore-requires-python", "-v"] + pip_target_args
                     install_proc = subprocess.Popen(
                         whisperx_cmd,
                         stdout=subprocess.PIPE,
@@ -5933,6 +5937,7 @@ class GenerateCaptionsWidget(QWidget):
 
     def update_whisperx(self):
         """Check GitHub for a newer WhisperX portable release."""
+        self._show_console()
         self._append_text_to_console("=" * 60 + "\n")
         self._append_text_to_console("Checking WhisperX GitHub releases...\n")
         self._append_text_to_console("=" * 60 + "\n\n")
@@ -10907,6 +10912,16 @@ class GenerateCaptionsWidget(QWidget):
         except Exception as e:
             self._append_text_to_console(f"Warning: Adobe conversion failed: {str(e)}\n")
             return False
+
+    def _show_console(self):
+        """Ensure the console output panel is expanded and visible."""
+        try:
+            panel = getattr(self, 'progress_panel', None)
+            if panel and not panel.console_visible:
+                panel.toggle_btn.setChecked(True)
+                panel._toggle_console()
+        except Exception:
+            pass
 
     def _append_text_to_console(self, text):
         """Append text to console output and update progress panel"""
