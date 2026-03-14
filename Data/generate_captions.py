@@ -5771,6 +5771,67 @@ class GenerateCaptionsWidget(QWidget):
                     if not _patched:
                         self.progress.emit("  (SpeechBrain importutils.py not found — skipping)\n")
 
+                    # Patch torch_audio_backend.py: torchaudio 2.9+ removed
+                    # list_audio_backends() and set_audio_backend(). SpeechBrain 1.0.x
+                    # calls these unconditionally. Replace the file with a version that
+                    # guards each call with hasattr() (matches SpeechBrain develop branch).
+                    _tab_fixed = (
+                        '"""Library for checking the torchaudio backend.\n\n'
+                        'Authors\n-------\n * Mirco Ravanelli 2021\n * Adel Moumen 2025\n"""\n\n'
+                        'import platform\nfrom typing import Optional, Tuple\nimport torchaudio\n'
+                        'from speechbrain.utils.logger import get_logger\n\n'
+                        'logger = get_logger(__name__)\n\n\n'
+                        'def try_parse_torchaudio_major_version():\n'
+                        '    if not hasattr(torchaudio, "__version__"):\n        return None\n'
+                        '    parts = torchaudio.__version__.split(".")\n'
+                        '    if len(parts) < 2:\n        return None\n'
+                        '    try:\n        return int(parts[0]), int(parts[1])\n'
+                        '    except Exception:\n        return None\n\n\n'
+                        'def check_torchaudio_backend():\n'
+                        '    result = try_parse_torchaudio_major_version()\n'
+                        '    if result is None:\n'
+                        '        logger.warning("Failed to detect torchaudio version.")\n'
+                        '        return\n'
+                        '    torchaudio_major, torchaudio_minor = result\n'
+                        '    if torchaudio_major >= 2 and torchaudio_minor >= 1:\n'
+                        '        if hasattr(torchaudio, "list_audio_backends"):\n'
+                        '            available_backends = torchaudio.list_audio_backends()\n'
+                        '            if len(available_backends) == 0:\n'
+                        '                logger.warning("No torchaudio backends found.")\n'
+                        '        else:\n'
+                        '            logger.debug("torchaudio 2.9+ detected - backend check skipped.")\n'
+                        '    else:\n'
+                        '        if platform.system() == "Windows" and hasattr(torchaudio, "set_audio_backend"):\n'
+                        '            torchaudio.set_audio_backend("soundfile")\n\n\n'
+                        'def validate_backend(backend):\n'
+                        '    allowed_backends = [None, "ffmpeg", "sox", "soundfile"]\n'
+                        '    if backend not in allowed_backends:\n'
+                        '        if hasattr(torchaudio, "list_audio_backends"):\n'
+                        '            msg = f"Available backends: {torchaudio.list_audio_backends()}"\n'
+                        '        else:\n'
+                        '            msg = "Using torchaudio 2.9+ with torchcodec."\n'
+                        '        raise ValueError(f"backend must be one of {allowed_backends}. {msg}")\n'
+                    )
+                    _tab_paths = [
+                        os.path.join(venv_dir, "Lib", "site-packages", "speechbrain", "utils", "torch_audio_backend.py"),
+                    ]
+                    for _p in _glob2.glob(os.path.join(venv_dir, "lib", "python*", "site-packages", "speechbrain", "utils", "torch_audio_backend.py")):
+                        _tab_paths.append(_p)
+                    for _tab_path in _tab_paths:
+                        if not os.path.exists(_tab_path):
+                            continue
+                        try:
+                            _existing = open(_tab_path, "r", encoding="utf-8").read()
+                            if "torchaudio 2.9+" in _existing:
+                                self.progress.emit("  ✓ torch_audio_backend.py already patched\n")
+                            else:
+                                with open(_tab_path, "w", encoding="utf-8") as _f:
+                                    _f.write(_tab_fixed)
+                                self.progress.emit("  ✓ torch_audio_backend.py patched for torchaudio 2.9+\n")
+                        except Exception as _e:
+                            self.progress.emit(f"  ⚠ torch_audio_backend.py patch error: {_e}\n")
+                        break
+
                     # Verify installation
                     self.progress.emit("\nVerifying installation...\n")
                     verify_code = "\n".join([
