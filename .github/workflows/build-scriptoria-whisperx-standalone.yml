@@ -91,6 +91,12 @@ jobs:
             )
           )
 
+      - name: Bundle Python stdlib for portability
+        shell: cmd
+        run: |
+          echo Bundling Python stdlib and extension DLLs so the package works on any machine...
+          python whisperx_portable_builder\copy_stdlib.py "%pythonLocation%" whisperx_portable
+
       - name: Patch SpeechBrain lazy importer
         shell: cmd
         run: |
@@ -180,6 +186,9 @@ jobs:
         shell: cmd
         run: |
           echo Installing WhisperX ${{ steps.get_version.outputs.VERSION }} with pinned dependencies...
+          rem Install whisperx without deps first (its torch~=2.8.0 pin conflicts with 2.9.x)
+          whisperx_portable\Scripts\python.exe -m pip install whisperx==${{ steps.get_version.outputs.VERSION }} --no-deps
+          rem Install remaining requirements (torch/torchaudio already installed above)
           whisperx_portable\Scripts\python.exe -m pip install -r whisperx_portable_builder\requirements_cpu.txt
 
       - name: Add core Python runtime DLLs
@@ -206,6 +215,12 @@ jobs:
               echo   Added %%F
             )
           )
+
+      - name: Bundle Python stdlib for portability
+        shell: cmd
+        run: |
+          echo Bundling Python stdlib and extension DLLs so the package works on any machine...
+          python whisperx_portable_builder\copy_stdlib.py "%pythonLocation%" whisperx_portable
 
       - name: Patch SpeechBrain lazy importer
         shell: cmd
@@ -307,13 +322,13 @@ jobs:
 
             - Python 3.13
             - WhisperX ${{ steps.get_version.outputs.VERSION }}
-            - PyTorch 2.8.0
+            - PyTorch 2.9.1
             - All required dependencies
 
             ## Changelog
 
             - WhisperX: ${{ steps.get_version.outputs.VERSION }}
-            - PyTorch: 2.8.0
+            - PyTorch: 2.9.1
             - CUDA: 12.8 (CUDA version only)
           files: |
             whisperx_portable_win64_cuda128_v${{ steps.get_version.outputs.VERSION }}.zip.partaa
