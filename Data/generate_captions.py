@@ -5852,29 +5852,32 @@ class GenerateCaptionsWidget(QWidget):
                         break
             return tuple(parts)
 
-        # Detect the actually-installed version from whisperx_env, not the code constant.
-        # WHISPERX_VERSION is the version the *app* was built for, not what the user has installed.
-        # Use the python path already found by check_whisperx_deps_simple() at startup.
+        # Detect the actually-installed version by reading the whisperx dist-info folder
+        # directly from whisperx_env — no subprocess needed and works regardless of
+        # whether self.whisperx_python has been resolved yet.
+        import glob as _glob
         current_version = None
-        _portable_python = getattr(self, 'whisperx_python', None) or getattr(self, 'whisperx_venv_python', None)
-        if _portable_python and os.path.exists(_portable_python):
-            try:
-                _ver_result = subprocess.run(
-                    [_portable_python, "-c",
-                     "import importlib.metadata; print(importlib.metadata.version('whisperx'))"],
-                    capture_output=True, text=True, timeout=10,
-                    startupinfo=get_subprocess_startup_info(),
-                    creationflags=get_subprocess_creation_flags()
-                )
-                if _ver_result.returncode == 0:
-                    current_version = _ver_result.stdout.strip()
-                    self._append_text_to_console(f"Installed version: {current_version}\n")
-                else:
-                    self._append_text_to_console(f"Version check failed: {_ver_result.stderr.strip()}\n")
-            except Exception as _e:
-                self._append_text_to_console(f"Version check error: {_e}\n")
-        else:
-            self._append_text_to_console("Could not locate whisperx_env python — version unknown.\n")
+        try:
+            _app_dir = get_app_directory()
+            _env = os.path.join(_app_dir, "whisperx_env")
+            # dist-info lives under Lib/site-packages on Windows portable envs
+            _patterns = [
+                os.path.join(_env, "Lib", "site-packages", "whisperx-*.dist-info"),
+                os.path.join(_env, "lib", "python*", "site-packages", "whisperx-*.dist-info"),
+            ]
+            for _pat in _patterns:
+                _matches = _glob.glob(_pat)
+                if _matches:
+                    _folder = os.path.basename(_matches[0])  # e.g. "whisperx-3.7.4.dist-info"
+                    _m = re.match(r'whisperx-(.+)\.dist-info', _folder)
+                    if _m:
+                        current_version = _m.group(1)
+                        self._append_text_to_console(f"Installed version: {current_version}\n")
+                        break
+            if not current_version:
+                self._append_text_to_console(f"whisperx dist-info not found in {_env} — version unknown.\n")
+        except Exception as _e:
+            self._append_text_to_console(f"Version detection error: {_e}\n")
         if not current_version:
             current_version = WHISPERX_VERSION  # fallback to code constant
 
