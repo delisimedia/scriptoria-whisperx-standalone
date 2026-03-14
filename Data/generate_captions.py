@@ -5852,7 +5852,29 @@ class GenerateCaptionsWidget(QWidget):
                         break
             return tuple(parts)
 
-        current_version = WHISPERX_VERSION
+        # Detect the actually-installed version from whisperx_env, not the code constant.
+        # WHISPERX_VERSION is the version the *app* was built for, not what the user has installed.
+        current_version = None
+        try:
+            _app_dir = get_app_directory()
+            _portable_python = os.path.join(_app_dir, "whisperx_env", "python.exe")
+            if not os.path.exists(_portable_python):
+                _portable_python = os.path.join(_app_dir, "whisperx_env", "Scripts", "python.exe")
+            if os.path.exists(_portable_python):
+                _ver_result = subprocess.run(
+                    [_portable_python, "-c",
+                     "import importlib.metadata; print(importlib.metadata.version('whisperx'))"],
+                    capture_output=True, text=True, timeout=10,
+                    startupinfo=get_subprocess_startup_info(),
+                    creationflags=get_subprocess_creation_flags()
+                )
+                if _ver_result.returncode == 0:
+                    current_version = _ver_result.stdout.strip()
+        except Exception:
+            pass
+        if not current_version:
+            current_version = WHISPERX_VERSION  # fallback to code constant
+
         release_url = f"https://github.com/{GITHUB_REPO}/releases"
 
         try:
