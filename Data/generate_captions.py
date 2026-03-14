@@ -44,14 +44,14 @@ from PyQt6.QtGui import QIcon, QPalette, QColor, QTextCursor, QFont, QDragEnterE
 #
 # Last updated: 2025-01-25
 # Based on WhisperX pyproject.toml requirements:
-# - torch~=2.8.0
-# - torchaudio~=2.8.0
+# - torch~=2.8.0 (but cu128 wheels only exist from 2.9.0+; install 2.9.1 with --no-deps on whisperx)
+# - torchaudio~=2.9.x
 # - CUDA 12.8 (cu128) via https://download.pytorch.org/whl/cu128
 # ============================================================================
 
 WHISPERX_VERSION = "3.8.2"  # WhisperX package version
-WHISPERX_PYTORCH_VERSION = "2.8.0"
-WHISPERX_TORCHAUDIO_VERSION = "2.8.0"
+WHISPERX_PYTORCH_VERSION = "2.9.1"   # 2.8.0+cu128 does not exist; cu128 starts at 2.9.0
+WHISPERX_TORCHAUDIO_VERSION = "2.9.1"
 WHISPERX_CUDA_VERSION = "12.8"
 WHISPERX_CUDA_SHORT = "cu128"
 WHISPERX_MIN_DRIVER_VERSION = 520  # Minimum NVIDIA driver for CUDA 12.x support
@@ -5548,9 +5548,13 @@ class GenerateCaptionsWidget(QWidget):
                         self.finished.emit(False, "Installation cancelled by user", "")
                         return
 
-                    self.progress.emit("\nStep 2/2: Installing WhisperX...\n")
+                    # WhisperX 3.8.x requires torch~=2.8.0 in its metadata, but cu128 wheels
+                    # only exist for torch 2.9.x.  Install whisperx with --no-deps to skip
+                    # that version gate, then install its remaining deps in step 3.
+                    self.progress.emit(f"\nStep 2/3: Installing WhisperX {WHISPERX_VERSION} (package only)...\n")
 
-                    whisperx_cmd = [venv_python, "-m", "pip", "install", "whisperx", "--upgrade", "-v"] + pip_target_args
+                    whisperx_cmd = [venv_python, "-m", "pip", "install",
+                                    f"whisperx=={WHISPERX_VERSION}", "--no-deps", "-v"] + pip_target_args
                     install_proc = subprocess.Popen(
                         whisperx_cmd,
                         stdout=subprocess.PIPE,
@@ -5604,6 +5608,69 @@ class GenerateCaptionsWidget(QWidget):
 
                     if install_proc.returncode != 0:
                         self.finished.emit(False, "Installation failed. See console output for details.", "")
+                        return
+
+                    # Step 3/3: install whisperx's remaining deps (all except torch/torchaudio
+                    # which are already installed at 2.9.x and would conflict with whisperx's
+                    # torch~=2.8.0 pin if resolved together).
+                    self.progress.emit("\nStep 3/3: Installing WhisperX dependencies...\n")
+                    deps_cmd = [
+                        venv_python, "-m", "pip", "install",
+                        "ctranslate2>=4.5.0",
+                        "faster-whisper>=1.1.1",
+                        "numpy>=2.1.0",
+                        "pandas>=2.2.3",
+                        f"pyannote.audio>=4.0.0",
+                        "transformers>=4.48.0",
+                        "huggingface-hub<1.0.0",
+                        "nltk>=3.9.1",
+                        "omegaconf>=2.3.0",
+                        "speechbrain<1.0.0",
+                        "-v",
+                    ] + pip_target_args
+
+                    deps_proc = subprocess.Popen(
+                        deps_cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        bufsize=1,
+                        env=get_clean_environment(),
+                        startupinfo=get_subprocess_startup_info(),
+                        creationflags=get_subprocess_creation_flags()
+                    )
+
+                    deps_queue = queue.Queue()
+                    def read_deps_output():
+                        for line in deps_proc.stdout:
+                            deps_queue.put(('line', line))
+                        deps_queue.put(('done', None))
+
+                    deps_reader = threading.Thread(target=read_deps_output, daemon=True)
+                    deps_reader.start()
+
+                    while True:
+                        if self._cancelled:
+                            deps_proc.terminate()
+                            deps_proc.wait(timeout=5)
+                            self.finished.emit(False, "Installation cancelled by user", "")
+                            return
+                        try:
+                            msg_type, content = deps_queue.get(timeout=15)
+                            if msg_type == 'done':
+                                break
+                            elif msg_type == 'line':
+                                self.progress.emit(content)
+                        except queue.Empty:
+                            if deps_proc.poll() is None:
+                                self.progress.emit(f"[{time.strftime('%H:%M:%S')}] Still installing dependencies...\n")
+
+                    deps_proc.wait()
+                    if self._cancelled:
+                        self.finished.emit(False, "Installation cancelled by user", "")
+                        return
+                    if deps_proc.returncode != 0:
+                        self.finished.emit(False, "Dependency installation failed. See console output for details.", "")
                         return
 
                     # Verify installation

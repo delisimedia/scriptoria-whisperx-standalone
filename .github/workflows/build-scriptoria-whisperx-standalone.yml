@@ -55,12 +55,15 @@ jobs:
         run: |
           echo Installing PyTorch with CUDA 12.8...
           whisperx_portable\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
-          whisperx_portable\Scripts\python.exe -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
+          whisperx_portable\Scripts\python.exe -m pip install torch==2.9.1 torchaudio==2.9.1 --index-url https://download.pytorch.org/whl/cu128
 
       - name: Install WhisperX with pinned dependencies
         shell: cmd
         run: |
           echo Installing WhisperX ${{ steps.get_version.outputs.VERSION }} with pinned dependencies...
+          rem Install whisperx without deps first (its torch~=2.8.0 pin conflicts with 2.9.x)
+          whisperx_portable\Scripts\python.exe -m pip install whisperx==${{ steps.get_version.outputs.VERSION }} --no-deps
+          rem Install remaining requirements (torch/torchaudio already installed above)
           whisperx_portable\Scripts\python.exe -m pip install -r whisperx_portable_builder\requirements_cuda.txt
 
       - name: Add core Python runtime DLLs
@@ -171,7 +174,7 @@ jobs:
         run: |
           echo Installing PyTorch CPU...
           whisperx_portable\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
-          whisperx_portable\Scripts\python.exe -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+          whisperx_portable\Scripts\python.exe -m pip install torch==2.9.1 torchaudio==2.9.1 --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install WhisperX with pinned dependencies
         shell: cmd
