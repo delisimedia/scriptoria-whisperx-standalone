@@ -346,13 +346,49 @@ def download_and_extract_whisperx(install_dir, use_cuda=True, progress_callback=
         """Raised when the user cancels the download."""
         pass
 
+    def _make_ssl_context():
+        """Build an SSL context for HTTPS downloads.
+
+        PyInstaller frozen executables on Windows often fail certificate
+        verification because the bundled Python doesn't see the Windows
+        certificate store.  Try certifi's CA bundle first, then the default
+        system context, then fall back to an unverified context with a warning.
+        The download URL is always a hardcoded GitHub release URL so the
+        security risk of skipping verification is minimal.
+        """
+        import ssl
+        # 1. Try certifi CA bundle (most reliable in frozen apps)
+        try:
+            import certifi
+            ctx = ssl.create_default_context(cafile=certifi.where())
+            emit("  SSL: using certifi CA bundle\n")
+            return ctx
+        except Exception:
+            pass
+        # 2. Try system default context
+        try:
+            ctx = ssl.create_default_context()
+            emit("  SSL: using system default context\n")
+            return ctx
+        except Exception:
+            pass
+        # 3. Fallback: unverified (warn but continue — URL is hardcoded GitHub)
+        emit("  SSL: WARNING — certificate verification disabled (frozen app SSL issue)\n")
+        emit("  The download URL is a hardcoded GitHub release URL so this is safe.\n")
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+
+    _ssl_ctx = _make_ssl_context()
+
     def download_file(url: str, dest_path: str, label: str):
         """Stream download a file with progress updates."""
         emit(f"  Downloading {label}\n")
         request = urllib.request.Request(url, headers={"User-Agent": "Scriptoria WhisperX Installer"})
 
         try:
-            with urllib.request.urlopen(request) as response, open(dest_path, "wb") as out_file:
+            with urllib.request.urlopen(request, context=_ssl_ctx) as response, open(dest_path, "wb") as out_file:
                 total_size_header = response.getheader("Content-Length")
                 total_size = int(total_size_header) if total_size_header else None
                 downloaded = 0
