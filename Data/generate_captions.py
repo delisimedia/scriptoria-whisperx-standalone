@@ -4527,7 +4527,7 @@ class GenerateCaptionsWidget(QWidget):
         diar_note = QLabel(
             'Diarization requires <a href="https://huggingface.co/settings/tokens">HuggingFace token</a> '
             'to download required dependency. You must also, with a HuggingFace account, accept the user '
-            'agreement for <a href="https://huggingface.co/pyannote/speaker-diarization-3.1">pyannote/speaker-diarization-3.1</a>. '
+            'agreement for <a href="https://huggingface.co/pyannote/speaker-diarization-community-1">pyannote/speaker-diarization-community-1</a>. '
             'There are no costs involved.'
         )
         diar_note.setStyleSheet("color: #666; font-size: 11px; font-style: italic;")
@@ -10382,13 +10382,13 @@ class GenerateCaptionsWidget(QWidget):
                 QMessageBox.information(self, "Token Validated", message)
                 self.prefetch_diarization_model(token=self.whisperx_hf_token.text().strip())
             else:
-                detail = result.get("model_message") or "Access to pyannote/speaker-diarization-3.1 is restricted."
+                detail = result.get("model_message") or "Access to pyannote/speaker-diarization-community-1 is restricted."
                 message = f"Token valid for {user}, but diarization model access is blocked."
                 color = "#d48b00"
                 QMessageBox.warning(
                     self,
                     "Model Access Required",
-                    f"{message}\n\nDetails:\n{detail}\n\nAccept the license at:\nhttps://huggingface.co/pyannote/speaker-diarization-3.1"
+                    f"{message}\n\nDetails:\n{detail}\n\nAccept the license at:\nhttps://huggingface.co/pyannote/speaker-diarization-community-1"
                 )
         else:
             error_text = result.get("error") or stderr or "Unknown error."
