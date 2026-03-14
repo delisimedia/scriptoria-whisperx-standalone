@@ -6,9 +6,10 @@
 # is processed, because whisperx's torch~=2.8.0 pin conflicts with torch 2.9.x
 # which is required since cu128 wheels only exist from 2.9.0+.
 
-# SpeechBrain - MUST use 0.5.x to avoid infinite recursion bug in 1.0.x
-# (SpeechBrain 1.0.x has AttributeError recursion on Python 3.13 + Windows)
-speechbrain<1.0.0
+# SpeechBrain - use 1.0.x+ to avoid torchaudio 'set_audio_backend' removal
+# (SpeechBrain <1.0.0 calls torchaudio.set_audio_backend which was removed in torchaudio 2.1)
+# The Windows lazy-importer infinite-recursion bug in 1.0.x is fixed by patch_speechbrain.py
+speechbrain>=1.0.0
 
 # NOTE: pytorch-lightning and torchmetrics pins removed for pyannote v4 compatibility.
 # pyannote.audio>=4.0.0 requires torchmetrics>=1.6.1 and lightning>=2.4 (the new

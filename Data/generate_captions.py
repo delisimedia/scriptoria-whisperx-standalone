@@ -5665,7 +5665,7 @@ class GenerateCaptionsWidget(QWidget):
                         "huggingface-hub<1.0.0",
                         "nltk>=3.9.1",
                         "omegaconf>=2.3.0",
-                        "speechbrain<1.0.0",
+                        "speechbrain>=1.0.0",
                         "-v",
                     ] + pip_target_args
 
@@ -5712,6 +5712,49 @@ class GenerateCaptionsWidget(QWidget):
                     if deps_proc.returncode != 0:
                         self.finished.emit(False, "Dependency installation failed. See console output for details.", "")
                         return
+
+                    # Patch SpeechBrain 1.0.x for Windows path-separator bug in lazy importer.
+                    # SpeechBrain>=1.0.0 uses importutils.py which checks importer_frame.filename
+                    # ending with "/inspect.py" but on Windows the path uses backslashes,
+                    # causing infinite AttributeError recursion.
+                    self.progress.emit("\nPatching SpeechBrain for Windows compatibility...\n")
+                    import glob as _glob2, re as _re2
+                    _sb_candidates = [
+                        os.path.join(venv_dir, "Lib", "site-packages", "speechbrain", "utils", "importutils.py"),
+                    ]
+                    for _pat in _glob2.glob(os.path.join(venv_dir, "lib", "python*", "site-packages", "speechbrain", "utils", "importutils.py")):
+                        _sb_candidates.append(_pat)
+                    _patched = False
+                    for _sb_path in _sb_candidates:
+                        if not os.path.exists(_sb_path):
+                            continue
+                        try:
+                            with open(_sb_path, "r", encoding="utf-8") as _f:
+                                _sb_src = _f.read()
+                            _pattern = (
+                                r'(?m)^( +)if importer_frame is not None'
+                                r' and importer_frame\.filename\.endswith\("/inspect\.py"\):\r?\n'
+                                r'\1    raise AttributeError\(\)'
+                            )
+                            _replacement = (
+                                r'\1if importer_frame is not None:\n'
+                                r'\1    _fname = importer_frame.filename.replace("\\\\", "/")\n'
+                                r'\1    if _fname.endswith("/inspect.py"):\n'
+                                r'\1        raise AttributeError()'
+                            )
+                            _new_src, _count = _re2.subn(_pattern, _replacement, _sb_src)
+                            if _count > 0:
+                                with open(_sb_path, "w", encoding="utf-8") as _f:
+                                    _f.write(_new_src)
+                                self.progress.emit(f"  ✓ SpeechBrain importutils.py patched\n")
+                            else:
+                                self.progress.emit("  ✓ SpeechBrain patch already applied or not needed\n")
+                            _patched = True
+                        except Exception as _patch_exc:
+                            self.progress.emit(f"  ⚠ SpeechBrain patch error: {_patch_exc}\n")
+                        break
+                    if not _patched:
+                        self.progress.emit("  (SpeechBrain importutils.py not found — skipping)\n")
 
                     # Verify installation
                     self.progress.emit("\nVerifying installation...\n")
