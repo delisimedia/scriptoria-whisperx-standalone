@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'WhisperX version (e.g., 3.7.4)'
+        description: 'WhisperX version (e.g., 3.8.2)'
         required: true
-        default: '3.7.4'
+        default: '3.8.2'
       pytorch_version:
         description: 'PyTorch version (e.g., 2.8.0)'
         required: true
@@ -30,7 +30,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.13.3'
 
       - name: Get version from tag or input
         id: get_version
@@ -57,11 +57,43 @@ jobs:
           whisperx_portable\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
           whisperx_portable\Scripts\python.exe -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
 
-      - name: Install WhisperX
+      - name: Install WhisperX with pinned dependencies
         shell: cmd
         run: |
-          echo Installing WhisperX ${{ steps.get_version.outputs.VERSION }}...
-          whisperx_portable\Scripts\python.exe -m pip install whisperx==${{ steps.get_version.outputs.VERSION }}
+          echo Installing WhisperX ${{ steps.get_version.outputs.VERSION }} with pinned dependencies...
+          whisperx_portable\Scripts\python.exe -m pip install -r whisperx_portable_builder\requirements_cuda.txt
+
+      - name: Add core Python runtime DLLs
+        shell: cmd
+        run: |
+          echo Copying core Python DLLs into portable environment...
+          for %%F in (python3.dll python313.dll python313t.dll python313d.dll) do (
+            if exist "%pythonLocation%\%%F" (
+              copy "%pythonLocation%\%%F" whisperx_portable\ >nul
+              echo   Added %%F
+            )
+          )
+
+          for %%F in (python.exe pythonw.exe) do (
+            if exist "%pythonLocation%\%%F" (
+              copy "%pythonLocation%\%%F" whisperx_portable\ >nul
+              echo   Added %%F
+            )
+          )
+
+          for %%F in (vcruntime140.dll vcruntime140_1.dll vcruntime140d.dll) do (
+            if exist "%pythonLocation%\%%F" (
+              copy "%pythonLocation%\%%F" whisperx_portable\ >nul
+              echo   Added %%F
+            )
+          )
+
+      - name: Patch SpeechBrain lazy importer
+        shell: cmd
+        run: |
+          echo Patching SpeechBrain lazy importer for Windows path separators...
+          whisperx_portable\Scripts\python.exe -c "import re; from pathlib import Path; path = Path(r'whisperx_portable\\Lib\\site-packages\\speechbrain\\utils\\importutils.py'); src = path.read_text(); pattern = r'(?m)^        if importer_frame is not None and importer_frame\\.filename.endswith\(\"/inspect\\.py\"\):\r?\n            raise AttributeError\(\)'; repl = '        if importer_frame is not None:\\n            filename = importer_frame.filename.replace(\\"\\\\\\", \\\"/\\")\\n            if filename.endswith(\\"/inspect.py\\"):\\n                raise AttributeError()'; new_src, count = re.subn(pattern, repl, src);\nif count == 0: raise SystemExit('SpeechBrain patch failed: pattern not found'); path.write_text(new_src)"
+
 
       - name: Verify installation
         shell: cmd
@@ -72,6 +104,7 @@ jobs:
           whisperx_portable\Scripts\python.exe -c "import torch; print(f'PyTorch {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
 
       - name: Create portable package
+        id: create_package
         shell: bash
         run: |
           version="${{ steps.get_version.outputs.VERSION }}"
@@ -87,13 +120,19 @@ jobs:
           fileSizeMB=$((fileSize / 1048576))
           echo "Package size: ${fileSizeMB} MB"
 
+          # Split into ~1.9 GB parts to stay under GitHub's 2 GB release asset limit
+          # Produces: whisperx_portable_win64_cuda128_v3.x.x.zip.partaa, .partab, etc.
+          split -b 1900m "$outputFile" "${outputFile}.part"
+          echo "Split parts:"
+          ls -lh ${outputFile}.part*
+
           echo "PACKAGE_NAME=$outputFile" >> $GITHUB_OUTPUT
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: whisperx-portable-cuda
-          path: whisperx_portable_win64_cuda128_v${{ steps.get_version.outputs.VERSION }}.zip
+          path: whisperx_portable_win64_cuda128_v${{ steps.get_version.outputs.VERSION }}.zip.part*
           retention-days: 30
 
   build-cpu:
@@ -107,7 +146,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.13.3'
 
       - name: Get version from tag or input
         id: get_version
@@ -134,11 +173,42 @@ jobs:
           whisperx_portable\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
           whisperx_portable\Scripts\python.exe -m pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Install WhisperX
+      - name: Install WhisperX with pinned dependencies
         shell: cmd
         run: |
-          echo Installing WhisperX ${{ steps.get_version.outputs.VERSION }}...
-          whisperx_portable\Scripts\python.exe -m pip install whisperx==${{ steps.get_version.outputs.VERSION }}
+          echo Installing WhisperX ${{ steps.get_version.outputs.VERSION }} with pinned dependencies...
+          whisperx_portable\Scripts\python.exe -m pip install -r whisperx_portable_builder\requirements_cpu.txt
+
+      - name: Add core Python runtime DLLs
+        shell: cmd
+        run: |
+          echo Copying core Python DLLs into portable environment...
+          for %%F in (python3.dll python313.dll python313t.dll python313d.dll) do (
+            if exist "%pythonLocation%\%%F" (
+              copy "%pythonLocation%\%%F" whisperx_portable\ >nul
+              echo   Added %%F
+            )
+          )
+
+          for %%F in (python.exe pythonw.exe) do (
+            if exist "%pythonLocation%\%%F" (
+              copy "%pythonLocation%\%%F" whisperx_portable\ >nul
+              echo   Added %%F
+            )
+          )
+
+          for %%F in (vcruntime140.dll vcruntime140_1.dll vcruntime140d.dll) do (
+            if exist "%pythonLocation%\%%F" (
+              copy "%pythonLocation%\%%F" whisperx_portable\ >nul
+              echo   Added %%F
+            )
+          )
+
+      - name: Patch SpeechBrain lazy importer
+        shell: cmd
+        run: |
+          echo Patching SpeechBrain lazy importer for Windows path separators...
+          whisperx_portable\Scripts\python.exe -c "import re; from pathlib import Path; path = Path(r'whisperx_portable\\Lib\\site-packages\\speechbrain\\utils\\importutils.py'); src = path.read_text(); pattern = r'(?m)^        if importer_frame is not None and importer_frame\\.filename.endswith\(\"/inspect\\.py\"\):\r?\n            raise AttributeError\(\)'; repl = '        if importer_frame is not None:\\n            filename = importer_frame.filename.replace(\\"\\\\\\", \\\"/\\")\\n            if filename.endswith(\\"/inspect.py\\"):\\n                raise AttributeError()'; new_src, count = re.subn(pattern, repl, src);\nif count == 0: raise SystemExit('SpeechBrain patch failed: pattern not found'); path.write_text(new_src)"
 
       - name: Verify installation
         shell: cmd
@@ -178,6 +248,8 @@ jobs:
     needs: [build-cuda, build-cpu]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
 
     steps:
       - name: Get version from tag
@@ -241,7 +313,8 @@ jobs:
             - PyTorch: 2.8.0
             - CUDA: 12.8 (CUDA version only)
           files: |
-            whisperx_portable_win64_cuda128_v${{ steps.get_version.outputs.VERSION }}.zip
+            whisperx_portable_win64_cuda128_v${{ steps.get_version.outputs.VERSION }}.zip.partaa
+            whisperx_portable_win64_cuda128_v${{ steps.get_version.outputs.VERSION }}.zip.partab
             whisperx_portable_win64_cpu_v${{ steps.get_version.outputs.VERSION }}.zip
           draft: false
           prerelease: false

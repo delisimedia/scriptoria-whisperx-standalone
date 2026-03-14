@@ -1,0 +1,8 @@
+# CPU-specific requirements for WhisperX 3.8.2
+# Install PyTorch 2.8.0 CPU version first, then install these
+
+# Use the base requirements
+-r requirements_base.txt
+
+# Note: PyTorch and torchaudio should be installed separately via:
+# pip install torch==2.8.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cpu

@@ -105,32 +105,32 @@ echo PyTorch installed successfully
 echo.
 
 echo ============================================================================
-echo Step 4: Installing WhisperX %WHISPERX_VERSION%
+echo Step 4: Installing WhisperX %WHISPERX_VERSION% with pinned dependencies
 echo ============================================================================
 echo.
 
-"%ENV_DIR%\Scripts\python.exe" -m pip install whisperx==%WHISPERX_VERSION%
+"%ENV_DIR%\Scripts\python.exe" -m pip install -r "%~dp0requirements_cuda.txt"
 
 if errorlevel 1 (
-    echo ERROR: Failed to install WhisperX
+    echo ERROR: Failed to install WhisperX and dependencies
     exit /b 1
 )
 
-echo WhisperX installed successfully
+echo WhisperX and dependencies installed successfully
 echo.
 
 echo ============================================================================
 echo Step 4a: Patching SpeechBrain lazy importer for Windows paths
 echo ============================================================================
 echo.
-echo Fixing infinite recursion bug in speechbrain/utils/importutils.py...
+  echo Fixing infinite recursion bug in speechbrain/utils/importutils.py...
 
-"%ENV_DIR%\Scripts\python.exe" -c "from pathlib import Path; p = Path(r'%ENV_DIR%\Lib\site-packages\speechbrain\utils\importutils.py'); c = p.read_text(); old = 'importer_frame.filename.endswith(\"/inspect.py\")'; new = 'importer_frame.filename.replace(\"\\\\\", \"/\").endswith(\"/inspect.py\")'; c_new = c.replace(old, new); assert c != c_new, 'Pattern not found!'; p.write_text(c_new); print('Patch applied successfully')"
+  "%ENV_DIR%\Scripts\python.exe" -c "from pathlib import Path; path = Path(r'%ENV_DIR%\Lib\site-packages\speechbrain\utils\importutils.py'); src = path.read_text(); old_unix = '        if importer_frame is not None and importer_frame.filename.endswith(\"/inspect.py\"):\n            raise AttributeError()\n'; old_win = old_unix.replace('\n', '\r\n'); repl_unix = '        if importer_frame is not None and importer_frame.filename.endswith(\"/inspect.py\"):\n            # patched to avoid recursion when Lightning inspects modules on Windows\n            pass\n'; repl_win = repl_unix.replace('\n', '\r\n'); replaced = False;\nif old_unix in src:\n    src = src.replace(old_unix, repl_unix); replaced = True\nelif old_win in src:\n    src = src.replace(old_win, repl_win); replaced = True\nif not replaced:\n    raise SystemExit('SpeechBrain patch failed: pattern not found');\npath.write_text(src); print('SpeechBrain lazy importer patched')"
 
-if errorlevel 1 (
-    echo WARNING: Failed to patch SpeechBrain - diarization may not work on Windows
-    echo Continuing anyway...
-)
+  if errorlevel 1 (
+      echo WARNING: Failed to patch SpeechBrain - diarization may not work on Windows
+      echo Continuing anyway...
+  )
 
 echo ============================================================================
 echo Step 5: Verifying installation

@@ -1,0 +1,25 @@
+# Base requirements for WhisperX 3.8.2 compatibility with Python 3.13.3
+# PyTorch 2.8.0 is officially supported by WhisperX 3.8.x
+# These pins prevent dependency drift to incompatible newer versions
+
+# Core - WhisperX 3.8.2 with controlled dependencies
+whisperx==3.8.2
+
+# SpeechBrain - MUST use 0.5.x to avoid infinite recursion bug in 1.0.x
+# (SpeechBrain 1.0.x has AttributeError recursion with PyTorch Lightning on Python 3.13)
+speechbrain<1.0.0
+
+# PyTorch Lightning - pin to 1.9.x to be compatible with SpeechBrain 0.5.x
+# (Lightning 2.x changes module inspection that breaks SpeechBrain 0.5.x)
+pytorch-lightning<2.0.0,>=1.9.0
+torchmetrics<1.0.0,>=0.11.0
+
+# Pyannote - WhisperX 3.8.x requires pyannote-audio v4 (breaking change from v3)
+pyannote.audio>=4.0.0
+
+# Explicitly pin NumPy to avoid issues with Python 3.13
+numpy>=2.1.0
+
+# Other dependencies - let WhisperX pull compatible versions
+faster-whisper>=1.1.1
+transformers>=4.48.0
